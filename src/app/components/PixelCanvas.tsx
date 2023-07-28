@@ -1,17 +1,9 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import ColorPalette from "./ColorPalette";
-import { type } from "os";
 const COLORS = ["black", "red", "green", "blue", "yellow", "purple"]; // Add more colors if needed
 
-type PixelCanvasProps = {
-  canvasHeight: number;
-  canvasWidth: number;
-  artwork: { row: number; col: number; color: string }[]; // Update the type to include the 'color' property
-  onArtworkChange: (newData: any) => void; // replace with actual data type
-};
-
-const PixelCanvas = (props: PixelCanvasProps) => {
+function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [numRows, setNumRows] = useState<number>(() => {
     const savedNumRows = localStorage.getItem("numRows");
@@ -131,21 +123,27 @@ const PixelCanvas = (props: PixelCanvasProps) => {
     }
   };
   const handleDownload = () => {
-    // Create a temporary canvas for downloading the artwork
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = numCols * pixelSize;
-    tempCanvas.height = numRows * pixelSize;
-    const tempCtx = tempCanvas.getContext("2d");
-    if (!tempCtx) return;
+    // Draw the canvas without the grid lines and download the image
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // Draw the artwork on the temporary canvas
-    drawArtwork(tempCtx);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Temporarily remove the grid lines
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawArtwork(ctx);
 
     // Create a temporary link to download the canvas as an image
     const link = document.createElement("a");
-    link.href = tempCanvas.toDataURL("image/png");
+    link.href = canvas.toDataURL("image/png");
     link.download = "pixel_artwork.png";
     link.click();
+
+    // Restore the original canvas with the grid lines
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid(ctx);
+    drawArtwork(ctx);
   };
 
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
@@ -209,15 +207,13 @@ const PixelCanvas = (props: PixelCanvasProps) => {
         selectedColor={mainColor} // Pass the mainColor as the selectedColor prop
         onColorChange={handleColorChange} // Pass the handleColorChange function as the onColorChange prop
       />
-      <div className="placeholder">
-        <canvas
-          ref={canvasRef}
-          style={{ border: "1px solid black" }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        ></canvas>
-      </div>
+      <canvas
+        ref={canvasRef}
+        style={{ border: "1px solid black" }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      ></canvas>
       <button
         className="text-black border border-gray-200"
         onClick={handleDownload}
@@ -226,6 +222,6 @@ const PixelCanvas = (props: PixelCanvasProps) => {
       </button>
     </div>
   );
-};
+}
 
 export default PixelCanvas;
