@@ -1,4 +1,4 @@
-import Image from "next/image";
+"use client";
 import PixelCanvas from "./components/PixelCanvas";
 
 export default function Home() {

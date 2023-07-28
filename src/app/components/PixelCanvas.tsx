@@ -6,6 +6,7 @@ const PLACEHOLDER_HEIGHT = 3995;
 const PLACEHOLDER_WIDTH = 3153;
 
 function PixelCanvas() {
+  const isLocalStorageAvailable = typeof localStorage !== "undefined";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const placeholderRef = useRef<HTMLDivElement>(null);
   const [placeholderSize, setPlaceholderSize] = useState({
@@ -13,34 +14,70 @@ function PixelCanvas() {
     height: 0,
   });
   const [numRows, setNumRows] = useState<number>(() => {
-    const savedNumRows = localStorage.getItem("numRows");
-    return savedNumRows ? parseInt(savedNumRows) : 20;
+    if (isLocalStorageAvailable) {
+      const savedNumRows = localStorage.getItem("numRows");
+      return savedNumRows ? parseInt(savedNumRows) : 20;
+    }
+    return 20; // Default value if localStorage is not available
   });
 
   const [numCols, setNumCols] = useState<number>(() => {
-    const savedNumCols = localStorage.getItem("numCols");
-    return savedNumCols ? parseInt(savedNumCols) : 20;
+    if (isLocalStorageAvailable) {
+      const savedNumCols = localStorage.getItem("numCols");
+      return savedNumCols ? parseInt(savedNumCols) : 20;
+    }
+    return 20; // Default value if localStorage is not available
   });
 
   const [pixelSize, setPixelSize] = useState<number>(() => {
-    const savedPixelSize = localStorage.getItem("pixelSize");
-    return savedPixelSize ? parseInt(savedPixelSize) : 10;
+    if (isLocalStorageAvailable) {
+      const savedPixelSize = localStorage.getItem("pixelSize");
+      return savedPixelSize ? parseInt(savedPixelSize) : 10;
+    }
+    return 10; // Default value if localStorage is not available
+  });
+
+  const [artwork, setArtwork] = useState<
+    { row: number; col: number; color: string }[]
+  >(() => {
+    if (isLocalStorageAvailable) {
+      const savedArtwork = localStorage.getItem("artwork");
+      return savedArtwork ? JSON.parse(savedArtwork) : [];
+    }
+    return []; // Default value if localStorage is not available
   });
 
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPixelRef = useRef<{ row: number; col: number } | null>(null);
-  const [artwork, setArtwork] = useState<
-    { row: number; col: number; color: string }[] // Update the type to include the 'color' property
-  >(() => {
-    const savedArtwork = localStorage.getItem("artwork");
-    return savedArtwork ? JSON.parse(savedArtwork) : [];
-  });
   const [mainColor, setMainColor] = useState<string>("black"); // State for the main color
-  const [selectedColor, setSelectedColor] = useState<string>("black");
 
   const handleColorChange = (color: string) => {
     setMainColor(color); // Update the main color state when a color is selected from the palette
   };
+
+  useEffect(() => {
+    if (isLocalStorageAvailable) {
+      const savedNumRows = localStorage.getItem("numRows");
+      const savedNumCols = localStorage.getItem("numCols");
+      const savedPixelSize = localStorage.getItem("pixelSize");
+      const savedArtwork = localStorage.getItem("artwork");
+
+      if (savedNumRows) setNumRows(parseInt(savedNumRows));
+      if (savedNumCols) setNumCols(parseInt(savedNumCols));
+      if (savedPixelSize) setPixelSize(parseInt(savedPixelSize));
+      if (savedArtwork) setArtwork(JSON.parse(savedArtwork));
+    }
+  }, [isLocalStorageAvailable]);
+
+  useEffect(() => {
+    // Save state to localStorage if available
+    if (isLocalStorageAvailable) {
+      localStorage.setItem("numRows", numRows.toString());
+      localStorage.setItem("numCols", numCols.toString());
+      localStorage.setItem("pixelSize", pixelSize.toString());
+      localStorage.setItem("artwork", JSON.stringify(artwork));
+    }
+  }, [numRows, numCols, pixelSize, artwork, isLocalStorageAvailable]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -80,37 +117,6 @@ function PixelCanvas() {
   }, [pixelSize]);
 
   useEffect(() => {
-    localStorage.setItem("numRows", numRows.toString());
-    localStorage.setItem("numCols", numCols.toString());
-    localStorage.setItem("pixelSize", pixelSize.toString());
-  }, [numRows, numCols, pixelSize]);
-
-  useEffect(() => {
-    localStorage.setItem("artwork", JSON.stringify(artwork));
-  }, [artwork]);
-
-  useEffect(() => {
-    if (placeholderRef.current) {
-      const { offsetWidth, offsetHeight } = placeholderRef.current;
-
-      const desiredNumRows = 20;
-      const desiredNumCols = 20;
-
-      const calculatedPixelSizeWidth = offsetWidth / desiredNumCols;
-      const calculatedPixelSizeHeight = offsetHeight / desiredNumRows;
-
-      const calculatedPixelSize = Math.floor(
-        Math.min(calculatedPixelSizeWidth, calculatedPixelSizeHeight)
-      ); // Use Math.floor to round down
-
-      setPixelSize(calculatedPixelSize);
-      setNumRows(desiredNumRows);
-      setNumCols(desiredNumCols);
-      setPlaceholderSize({ width: offsetWidth, height: offsetHeight });
-    }
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -141,6 +147,30 @@ function PixelCanvas() {
 
   const handlePixelSizeChange = (size: number) => {
     setPixelSize(size);
+    localStorage.setItem("pixelSize", size.toString()); // Save the updated size to local storage
+
+    // Re-render the canvas with the new pixel size
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    const canvasWidth = numCols * size;
+    const canvasHeight = numRows * size;
+
+    canvas.width = canvasWidth * devicePixelRatio;
+    canvas.height = canvasHeight * devicePixelRatio;
+
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
+
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.imageSmoothingEnabled = false;
+
+    drawGrid(ctx);
+    drawArtwork(ctx);
   };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -195,24 +225,68 @@ function PixelCanvas() {
   };
 
   const handleDownload = () => {
-    // Draw the canvas without the grid lines and download the image
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Temporarily remove the grid lines
+    // Temporarily remove the grid lines and draw the artwork on the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawArtwork(ctx);
 
+    // Find the boundaries of the artwork (non-transparent pixels)
+    let minX = canvas.width;
+    let minY = canvas.height;
+    let maxX = 0;
+    let maxY = 0;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const alpha = data[(y * canvas.width + x) * 4 + 3];
+        if (alpha > 0) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+
+    // Calculate the width and height of the artwork without transparent space
+    const artworkWidth = maxX - minX + 1;
+    const artworkHeight = maxY - minY + 1;
+
+    // Create a new canvas to draw the trimmed artwork
+    const downloadCanvas = document.createElement("canvas");
+    downloadCanvas.width = artworkWidth;
+    downloadCanvas.height = artworkHeight;
+    const downloadCtx = downloadCanvas.getContext("2d");
+    if (!downloadCtx) return;
+
+    // Draw the trimmed artwork on the new canvas
+    downloadCtx.drawImage(
+      canvas,
+      minX,
+      minY,
+      artworkWidth,
+      artworkHeight,
+      0,
+      0,
+      artworkWidth,
+      artworkHeight
+    );
+
     // Create a temporary link to download the canvas as an image
     const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
+    link.href = downloadCanvas.toDataURL("image/png");
     link.download = "pixel_artwork.png";
     link.click();
 
-    // Restore the original canvas with the grid lines
+    // Restore the original canvas with the grid lines and the artwork
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx);
     drawArtwork(ctx);
@@ -237,13 +311,15 @@ function PixelCanvas() {
 
   const drawArtwork = (ctx: CanvasRenderingContext2D) => {
     for (const { row, col, color } of artwork) {
-      ctx.fillStyle = color; // Use the 'color' property of each pixel in the artwork array
-      ctx.fillRect(col * pixelSize, row * pixelSize, pixelSize, pixelSize);
+      if (col < numCols && row < numRows) {
+        ctx.fillStyle = color;
+        ctx.fillRect(col * pixelSize, row * pixelSize, pixelSize, pixelSize);
+      }
     }
   };
 
   return (
-    <div className="flex justify-center items-center flex-col">
+    <div className="flex flex-col items-center">
       <div className="text-black">
         <label>
           Rows:
@@ -284,6 +360,8 @@ function PixelCanvas() {
         style={{
           width: PLACEHOLDER_WIDTH / 4,
           height: PLACEHOLDER_HEIGHT / 4,
+          overflow: "hidden", // Hide any overflowing content
+          display: "inline-block", // Wrap the canvas without taking the full width
         }}
       >
         <canvas
