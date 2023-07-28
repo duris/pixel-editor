@@ -25,3 +25,9 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+.placeholder {
+  border: 1px solid #ccc;
+  width: 1051;
+  height: 1331.66px;
+}
