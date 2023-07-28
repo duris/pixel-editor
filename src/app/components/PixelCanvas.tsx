@@ -2,9 +2,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import ColorPalette from "./ColorPalette";
 const COLORS = ["black", "red", "green", "blue", "yellow", "purple"]; // Add more colors if needed
+const PLACEHOLDER_HEIGHT = 3995;
+const PLACEHOLDER_WIDTH = 3153;
 
 function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const placeholderRef = useRef<HTMLDivElement>(null);
+  const [placeholderSize, setPlaceholderSize] = useState({
+    width: 0,
+    height: 0,
+  });
   const [numRows, setNumRows] = useState<number>(() => {
     const savedNumRows = localStorage.getItem("numRows");
     return savedNumRows ? parseInt(savedNumRows) : 20;
@@ -57,6 +64,22 @@ function PixelCanvas() {
   }, [numRows, numCols, pixelSize]);
 
   useEffect(() => {
+    if (placeholderRef.current) {
+      const { offsetWidth, offsetHeight } = placeholderRef.current;
+
+      // Determine the number of rows and columns based on the placeholder size and pixel size
+      const calculatedNumRows = Math.floor(offsetHeight / pixelSize);
+      const calculatedNumCols = Math.floor(offsetWidth / pixelSize);
+
+      // Update the numRows and numCols state variables
+      setNumRows(calculatedNumRows);
+      setNumCols(calculatedNumCols);
+
+      setPlaceholderSize({ width: offsetWidth, height: offsetHeight });
+    }
+  }, [pixelSize]);
+
+  useEffect(() => {
     localStorage.setItem("numRows", numRows.toString());
     localStorage.setItem("numCols", numCols.toString());
     localStorage.setItem("pixelSize", pixelSize.toString());
@@ -65,6 +88,51 @@ function PixelCanvas() {
   useEffect(() => {
     localStorage.setItem("artwork", JSON.stringify(artwork));
   }, [artwork]);
+
+  useEffect(() => {
+    if (placeholderRef.current) {
+      const { offsetWidth, offsetHeight } = placeholderRef.current;
+
+      const desiredNumRows = 20;
+      const desiredNumCols = 20;
+
+      const calculatedPixelSizeWidth = offsetWidth / desiredNumCols;
+      const calculatedPixelSizeHeight = offsetHeight / desiredNumRows;
+
+      const calculatedPixelSize = Math.floor(
+        Math.min(calculatedPixelSizeWidth, calculatedPixelSizeHeight)
+      ); // Use Math.floor to round down
+
+      setPixelSize(calculatedPixelSize);
+      setNumRows(desiredNumRows);
+      setNumCols(desiredNumCols);
+      setPlaceholderSize({ width: offsetWidth, height: offsetHeight });
+    }
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    const canvasWidth = placeholderSize.width;
+    const canvasHeight = placeholderSize.height;
+
+    canvas.width = canvasWidth * devicePixelRatio;
+    canvas.height = canvasHeight * devicePixelRatio;
+
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
+
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.imageSmoothingEnabled = false;
+
+    drawGrid(ctx);
+    drawArtwork(ctx);
+  }, [placeholderSize]);
 
   const handleCanvasSizeChange = (rows: number, cols: number) => {
     setNumRows(rows);
@@ -107,10 +175,13 @@ function PixelCanvas() {
     const row = Math.floor(canvasY / pixelSize);
 
     // Only draw if the pixel is different from the last one to prevent redundant drawing
+    // And also check whether the pixel is within the canvas bounds
     if (
-      !lastPixelRef.current ||
-      lastPixelRef.current.row !== row ||
-      lastPixelRef.current.col !== col
+      (!lastPixelRef.current ||
+        lastPixelRef.current.row !== row ||
+        lastPixelRef.current.col !== col) &&
+      col < numCols &&
+      row < numRows
     ) {
       ctx.fillStyle = mainColor;
       ctx.fillRect(col * pixelSize, row * pixelSize, pixelSize, pixelSize);
@@ -122,6 +193,7 @@ function PixelCanvas() {
       ]);
     }
   };
+
   const handleDownload = () => {
     // Draw the canvas without the grid lines and download the image
     const canvas = canvasRef.current;
@@ -171,7 +243,7 @@ function PixelCanvas() {
   };
 
   return (
-    <div>
+    <div className="flex justify-center items-center flex-col">
       <div className="text-black">
         <label>
           Rows:
@@ -207,13 +279,21 @@ function PixelCanvas() {
         selectedColor={mainColor} // Pass the mainColor as the selectedColor prop
         onColorChange={handleColorChange} // Pass the handleColorChange function as the onColorChange prop
       />
-      <canvas
-        ref={canvasRef}
-        style={{ border: "1px solid black" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-      ></canvas>
+      <div
+        ref={placeholderRef}
+        style={{
+          width: PLACEHOLDER_WIDTH / 4,
+          height: PLACEHOLDER_HEIGHT / 4,
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{ width: "100%", height: "100%" }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        ></canvas>
+      </div>
       <button
         className="text-black border border-gray-200"
         onClick={handleDownload}
