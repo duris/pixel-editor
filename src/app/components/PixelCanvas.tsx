@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import ColorPalette from "./ColorPalette";
+import ImageKit from "imagekit";
 const COLORS = ["black", "red", "green", "blue", "yellow", "purple"]; // Add more colors if needed
 const PLACEHOLDER_HEIGHT = 3995;
 const PLACEHOLDER_WIDTH = 3153;
@@ -9,6 +10,9 @@ function PixelCanvas() {
   const isLocalStorageAvailable = typeof localStorage !== "undefined";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const placeholderRef = useRef<HTMLDivElement>(null);
+
+  const [zoom, setZoom] = useState(1);
+
   const [placeholderSize, setPlaceholderSize] = useState({
     width: 0,
     height: 0,
@@ -197,10 +201,10 @@ function PixelCanvas() {
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
+    const canvasX = (event.clientX - rect.left) * (1 / zoom); // Adjust x-coordinate for zoom
+    const canvasY = (event.clientY - rect.top) * (1 / zoom); // Adjust y-coordinate for zoom
 
-    // Calculate the actual pixel coordinates based on the canvas size and display size
+    // Calculate the actual pixel coordinates based on the adjusted canvas size and display size
     const col = Math.floor(canvasX / pixelSize);
     const row = Math.floor(canvasY / pixelSize);
 
@@ -318,55 +322,103 @@ function PixelCanvas() {
     }
   };
 
+  const handleZoom = (event: React.WheelEvent<HTMLDivElement>) => {
+    const deltaY = -event.deltaY;
+
+    // Adjust the zoom level based on the deltaY value
+    setZoom((prevZoom) => {
+      let newZoom = prevZoom + deltaY * 0.001;
+
+      // Limit zoom out to a maximum of 1
+      if (deltaY > 0) {
+        newZoom = Math.min(1.2, newZoom);
+      }
+      // Limit zoom in to a minimum of 0.4
+      else {
+        newZoom = Math.max(0.4, newZoom);
+      }
+
+      return newZoom;
+    });
+  };
+
+  const handleClearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Reset the artwork state to an empty array
+    drawGrid(ctx);
+    setArtwork([]);
+  };
+
   return (
-    <div className="flex flex-col items-center">
+    <div onWheel={handleZoom} className="flex flex-col items-center">
       <div className="text-black">
-        <label>
-          Rows:
-          <input
-            type="number"
-            value={numRows}
-            onChange={(e) =>
-              handleCanvasSizeChange(parseInt(e.target.value), numCols)
-            }
-          />
-        </label>
-        <label>
-          Columns:
-          <input
-            type="number"
-            value={numCols}
-            onChange={(e) =>
-              handleCanvasSizeChange(numRows, parseInt(e.target.value))
-            }
-          />
-        </label>
-        <label>
-          Pixel Size:
-          <input
-            type="number"
-            value={pixelSize}
-            onChange={(e) => handlePixelSizeChange(parseInt(e.target.value))}
-          />
-        </label>
+        <div className="flex flex-col absolute right-28 w-32">
+          <button
+            className="text-black border border-gray-200"
+            onClick={handleClearCanvas}
+          >
+            Clear Canvas
+          </button>
+
+          {/* <label>
+            Rows:
+            <input
+              type="number"
+              value={numRows}
+              onChange={(e) =>
+                handleCanvasSizeChange(parseInt(e.target.value), numCols)
+              }
+            />
+          </label>
+          <label>
+            Columns:
+            <input
+              type="number"
+              value={numCols}
+              onChange={(e) =>
+                handleCanvasSizeChange(numRows, parseInt(e.target.value))
+              }
+            />
+          </label> */}
+          <label>
+            Pixel Size:
+            <input
+              type="number"
+              value={pixelSize}
+              onChange={(e) => handlePixelSizeChange(parseInt(e.target.value))}
+            />
+          </label>
+        </div>
       </div>
       <ColorPalette
         colors={COLORS}
         selectedColor={mainColor} // Pass the mainColor as the selectedColor prop
         onColorChange={handleColorChange} // Pass the handleColorChange function as the onColorChange prop
-      />
+      />{" "}
+      <div className=" absolute bg-black top-5">
+        Height : {(PLACEHOLDER_HEIGHT / 300).toFixed(2)}" Width:
+        {(PLACEHOLDER_WIDTH / 300).toFixed(2)}"
+      </div>
       <div
         ref={placeholderRef}
         style={{
           width: PLACEHOLDER_WIDTH / 4,
           height: PLACEHOLDER_HEIGHT / 4,
-          overflow: "hidden", // Hide any overflowing content
+          // overflow: "hidden", // Hide any overflowing content
           display: "inline-block", // Wrap the canvas without taking the full width
         }}
       >
         <canvas
           ref={canvasRef}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%", transform: `scale(${zoom})` }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
