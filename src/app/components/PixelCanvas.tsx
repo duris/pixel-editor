@@ -35,8 +35,14 @@ function PixelCanvas() {
 
   const [pixelSize, setPixelSize] = useState<number>(() => {
     if (isLocalStorageAvailable) {
+      const saved = localStorage.getItem("pixelSize");
+
       const savedPixelSize = localStorage.getItem("pixelSize");
-      return savedPixelSize ? parseInt(savedPixelSize) : 10;
+      if (savedPixelSize && Number(savedPixelSize) >= 2) {
+        return savedPixelSize ? parseInt(savedPixelSize) : 10;
+      } else {
+        return 10;
+      }
     }
     return 10; // Default value if localStorage is not available
   });
@@ -50,6 +56,16 @@ function PixelCanvas() {
     }
     return []; // Default value if localStorage is not available
   });
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [initialMousePos, setInitialMousePos] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
+  const [initialArtworkPos, setInitialArtworkPos] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
 
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPixelRef = useRef<{ row: number; col: number } | null>(null);
@@ -150,7 +166,9 @@ function PixelCanvas() {
   };
 
   const handlePixelSizeChange = (size: number) => {
+    if (size < 5) return;
     setPixelSize(size);
+
     localStorage.setItem("pixelSize", size.toString()); // Save the updated size to local storage
 
     // Re-render the canvas with the new pixel size
@@ -239,49 +257,24 @@ function PixelCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawArtwork(ctx);
 
-    // Find the boundaries of the artwork (non-transparent pixels)
-    let minX = canvas.width;
-    let minY = canvas.height;
-    let maxX = 0;
-    let maxY = 0;
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
-        const alpha = data[(y * canvas.width + x) * 4 + 3];
-        if (alpha > 0) {
-          minX = Math.min(minX, x);
-          minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x);
-          maxY = Math.max(maxY, y);
-        }
-      }
-    }
-
-    // Calculate the width and height of the artwork without transparent space
-    const artworkWidth = maxX - minX + 1;
-    const artworkHeight = maxY - minY + 1;
-
-    // Create a new canvas to draw the trimmed artwork
+    // Create a new canvas to draw the artwork
     const downloadCanvas = document.createElement("canvas");
-    downloadCanvas.width = artworkWidth;
-    downloadCanvas.height = artworkHeight;
+    downloadCanvas.width = canvas.width;
+    downloadCanvas.height = canvas.height;
     const downloadCtx = downloadCanvas.getContext("2d");
     if (!downloadCtx) return;
 
-    // Draw the trimmed artwork on the new canvas
+    // Draw the artwork on the new canvas
     downloadCtx.drawImage(
       canvas,
-      minX,
-      minY,
-      artworkWidth,
-      artworkHeight,
       0,
       0,
-      artworkWidth,
-      artworkHeight
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height
     );
 
     // Create a temporary link to download the canvas as an image
