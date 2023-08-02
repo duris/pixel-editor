@@ -40,3 +40,21 @@ div.placeholder-container {
   background-color: #f0f0f0; /* Optional: Add a background color to see the placeholder area */
   border: 1px solid green;
 }
+.canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Add this line to vertically center the contents */
+  position: relative;
+}
+
+canvas {
+  image-rendering: pixelated;
+  display: block; /* Add this line to prevent extra spacing around the canvas */
+}
+
+svg {
+  transform: translate(-50%, -50%);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import ColorPalette from "./ColorPalette";
 import ImageKit from "imagekit";
+import Grid from "./Grid";
 const COLORS = ["black", "red", "green", "blue", "yellow", "purple"]; // Add more colors if needed
 const PLACEHOLDER_HEIGHT = 3995;
 const PLACEHOLDER_WIDTH = 3153;
@@ -290,7 +291,7 @@ function PixelCanvas() {
   };
 
   const drawGrid = (ctx: CanvasRenderingContext2D) => {
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.strokeStyle = "rgba(219, 219, 219, 1)";
     ctx.lineWidth = 1;
     for (let row = 0; row <= numRows; row++) {
       ctx.beginPath();
@@ -324,11 +325,11 @@ function PixelCanvas() {
 
       // Limit zoom out to a maximum of 1
       if (deltaY > 0) {
-        newZoom = Math.min(1.2, newZoom);
+        newZoom = Math.min(3, newZoom);
       }
       // Limit zoom in to a minimum of 0.4
       else {
-        newZoom = Math.max(0.4, newZoom);
+        newZoom = Math.max(0.5, newZoom);
       }
 
       return newZoom;
@@ -361,26 +362,6 @@ function PixelCanvas() {
             Clear Canvas
           </button>
 
-          {/* <label>
-            Rows:
-            <input
-              type="number"
-              value={numRows}
-              onChange={(e) =>
-                handleCanvasSizeChange(parseInt(e.target.value), numCols)
-              }
-            />
-          </label>
-          <label>
-            Columns:
-            <input
-              type="number"
-              value={numCols}
-              onChange={(e) =>
-                handleCanvasSizeChange(numRows, parseInt(e.target.value))
-              }
-            />
-          </label> */}
           <label>
             Pixel Size:
             <input
@@ -417,6 +398,12 @@ function PixelCanvas() {
           onMouseUp={handleMouseUp}
         ></canvas>
       </div>
+      {/* <Grid
+        numRows={numRows}
+        numCols={numCols}
+        pixelSize={pixelSize}
+        zoom={zoom}
+      /> */}
       <button
         className="text-black border border-gray-200"
         onClick={handleDownload}
